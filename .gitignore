@@ -1,0 +1,22 @@
+# Gradle
+.gradle
+/build
+*.lock
+
+# IDE
+.idea
+.vscode
+*.iml
+*.iws
+*.ipr
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
+
+# Build outputs
+/app/build
+/build
+local.properties
