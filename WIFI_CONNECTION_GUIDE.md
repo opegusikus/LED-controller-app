@@ -10,6 +10,7 @@ Your ESP32 Control App now has complete WiFi connection capabilities:
 ✅ **Password Support** - Connect to secured WiFi networks
 ✅ **Connection Status Display** - See current network
 ✅ **Runtime Permissions** - Automatically requests WiFi access
+✅ **Secure Communication** - Uses HTTPS on port 443
 
 ---
 
@@ -49,8 +50,8 @@ Your ESP32 Control App now has complete WiFi connection capabilities:
 ## 🔧 What Happens When You Connect
 
 1. **WiFi Connection**: Your device connects to the LED_control network
-2. **Device Discovery**: The app gets the ESP32's IP address (default: 192.168.1.100)
-3. **API Communication**: HTTP commands now reach the ESP32 via WiFi
+2. **Device Discovery**: The app gets the ESP32's IP address (default: 192.168.4.1)
+3. **Secure API Communication**: HTTPS commands now reach the ESP32 via WiFi on port 443
 4. **Control Ready**: You can immediately start:
    - Switching LED modes (Static, Rainbow, Pulse)
    - Adjusting brightness
@@ -65,7 +66,7 @@ The app automatically requests these permissions:
 - `CHANGE_WIFI_STATE` - Connect to networks
 - `ACCESS_FINE_LOCATION` - Scan for networks (required Android 6.0+)
 - `CHANGE_NETWORK_STATE` - Manage network connections
-- `INTERNET` - Send HTTP requests to ESP32
+- `INTERNET` - Send HTTPS requests to ESP32
 
 **Why Location?** Android 6.0+ requires location permission to scan WiFi networks (security measure).
 
@@ -96,8 +97,8 @@ Your ESP32 firmware should:
 1. Create a WiFi network named "LED_control"
 2. Set it to SSID: `LED_control`
 3. (Optional) Set a password
-4. Listen on port 80 for HTTP commands
-5. Handle `/api/command` endpoint
+4. **Listen on port 443 for HTTPS commands**
+5. Handle `/api/command` endpoint using SSL/TLS
 
 Example ESP32 WiFi setup (pseudo-code):
 ```cpp
@@ -119,7 +120,7 @@ After connecting to LED_control WiFi:
 
 2. **Settings Tab**: 
    - Adjust brightness (0-255)
-   - Update device IP if different
+   - Update device IP if different (defaults to HTTPS:443)
    - Refresh device state
 
 ---
@@ -139,8 +140,8 @@ After connecting to LED_control WiFi:
 │          ↓                          │
 │  ❌ LED_control WiFi Network ❌     │
 │          ↓                          │
-│  ESP32 (192.168.4.1:80)            │
-│  ├── /api/command        ←──────────┤
+│  ESP32 (192.168.4.1:443)           │
+│  ├── /api/command (HTTPS) ←─────────┤
 │  ├── /api/state                     │
 │  └── /api/info                      │
 └─────────────────────────────────────┘
@@ -165,9 +166,9 @@ After connecting to LED_control WiFi:
    ↓
 7. System WiFi manager connects to network
    ↓
-8. ESP32ApiClient uses connected WiFi for HTTP requests
+8. ESP32ApiClient uses connected WiFi for HTTPS requests
    ↓
-9. Commands sent to ESP32 via HTTP POST
+9. Commands sent to ESP32 via HTTPS POST on port 443
    ↓
 10. LED control successful!
 ```
@@ -183,24 +184,25 @@ Before considering WiFi connection complete:
 - [ ] LED_control appears in network list
 - [ ] Connection succeeds within 5 seconds
 - [ ] Status shows "Connected to: LED_control"
-- [ ] Brightness slider works over WiFi
+- [ ] Brightness slider works over HTTPS
 - [ ] Modes buttons send commands successfully
 
 ---
 
 ## 🎓 Code Files Modified
 
-Main changes for WiFi support:
+Main changes for WiFi and HTTPS support:
 
 1. **AndroidManifest.xml** - WiFi permissions added
 2. **MainActivity.kt** - Permission request handling
-3. **WiFiConnectionManager.kt** - NEW: WiFi API wrapper
-4. **SettingsFragment.kt** - WiFi UI controls
-5. **fragment_settings.xml** - WiFi UI layout
-6. **strings.xml** - WiFi text resources
+3. **WiFiConnectionManager.kt** - WiFi API wrapper
+4. **SettingsFragment.kt** - WiFi UI controls & HTTPS port update
+5. **ESP32ApiClient.kt** - HTTPS client configuration
+6. **fragment_settings.xml** - WiFi UI layout
+7. **strings.xml** - WiFi text resources
 
 ---
 
-**Your app is now WiFi-connected!** 🎉
+**Your app is now WiFi-connected and secure!** 🎉
 
-Connect multiple ESP32 devices and control them all over WiFi!
+Connect multiple ESP32 devices and control them all over HTTPS!

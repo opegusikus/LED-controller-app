@@ -132,8 +132,9 @@ class SettingsFragment : Fragment() {
      */
     private fun updateDeviceIp(ip: String) {
         try {
-            ESP32ApiClient.updateDeviceIp(ip, port = 80)
-            showToast("Device IP updated to $ip")
+            // Using port 443 for HTTPS as requested
+            ESP32ApiClient.updateDeviceIp(ip, port = 443)
+            showToast("Device IP updated to $ip (HTTPS:443)")
             binding.etDeviceIp.clearFocus()
         } catch (e: Exception) {
             showToast("Error: Invalid IP address - ${e.message}")

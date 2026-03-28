@@ -2,7 +2,6 @@ package com.example.esp32control
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -12,10 +11,15 @@ import androidx.fragment.app.Fragment
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.example.esp32control.databinding.ActivityMainBinding
+import com.example.esp32control.network.BluetoothConnectionManager
 import com.example.esp32control.network.ESP32ApiClient
+import com.example.esp32control.ui.BluetoothFragment
 import com.example.esp32control.ui.ModesFragment
 import com.example.esp32control.ui.SettingsFragment
 import com.google.android.material.tabs.TabLayoutMediator
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
     
@@ -38,7 +42,7 @@ class MainActivity : AppCompatActivity() {
     }
     
     /**
-     * Request WiFi and location permissions required for WiFi scanning and connection
+     * Request WiFi permissions required for WiFi scanning and connection
      */
     private fun requestRequiredPermissions() {
         val requiredPermissions = mutableListOf(
@@ -48,12 +52,6 @@ class MainActivity : AppCompatActivity() {
             Manifest.permission.ACCESS_NETWORK_STATE,
             Manifest.permission.INTERNET
         )
-        
-        // Add location permissions for WiFi scanning (required on Android 6.0+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            requiredPermissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
-            requiredPermissions.add(Manifest.permission.ACCESS_COARSE_LOCATION)
-        }
         
         val missingPermissions = requiredPermissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
@@ -98,8 +96,9 @@ class MainActivity : AppCompatActivity() {
         // Connect TabLayout with ViewPager2
         TabLayoutMediator(binding.tabLayout, viewPager) { tab, position ->
             tab.text = when (position) {
-                0 -> "Modes"
-                1 -> "Settings"
+                0 -> "Bluetooth"
+                1 -> "Modes"
+                2 -> "Settings"
                 else -> "Unknown"
             }
         }.attach()
@@ -107,15 +106,15 @@ class MainActivity : AppCompatActivity() {
     
     private fun initializeESP32Connection() {
         // Initialize the API client with device IP
-        // TODO: Load IP from SharedPreferences or settings
-        // For now, using default IP - can be changed in Settings
+        // Default: ESP32 Access Point IP (192.168.4.1) with HTTPS on port 443
+        // Can be changed in Settings if connecting as a WiFi client instead
         try {
             ESP32ApiClient.setup(
-                deviceIp = "192.168.1.100",
-                port = 80,
+                deviceIp = "192.168.4.1",
+                port = 443,
                 debugMode = true
             )
-            showToast("Connected to ESP32")
+            showToast("ESP32 API initialized (HTTPS)")
         } catch (e: Exception) {
             showToast("Failed to initialize ESP32 connection: ${e.message}")
         }
@@ -130,12 +129,13 @@ class MainActivity : AppCompatActivity() {
      */
     private inner class FragmentPagerAdapter(activity: AppCompatActivity) : FragmentStateAdapter(activity) {
         
-        override fun getItemCount(): Int = 2
+        override fun getItemCount(): Int = 3
         
         override fun createFragment(position: Int): Fragment {
             return when (position) {
-                0 -> ModesFragment()
-                1 -> SettingsFragment()
+                0 -> BluetoothFragment()
+                1 -> ModesFragment()
+                2 -> SettingsFragment()
                 else -> Fragment()
             }
         }

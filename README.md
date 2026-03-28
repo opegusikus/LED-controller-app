@@ -1,6 +1,6 @@
 # ESP32 Control App - Android Application
 
-A complete Android application built with Kotlin and Gradle for controlling an ESP32 device over WiFi using HTTP + JSON protocol.
+A complete Android application built with Kotlin and Gradle for controlling an ESP32 device over WiFi using HTTPS + JSON protocol.
 
 ## Project Structure
 
@@ -46,7 +46,7 @@ ESP32ControlApp/
   - Fragment + ViewPager2 for tab-based navigation
   - TabLayout for tab indicators
   - Material Design components
-- **HTTP Client**: Retrofit2 + OkHttp3
+- **HTTP Client**: Retrofit2 + OkHttp3 (configured for HTTPS)
 - **JSON Serialization**: Gson
 - **Architecture**: MVVM-ready with LiveData
 - **Async**: Kotlin Coroutines
@@ -88,15 +88,15 @@ ESP32ControlApp/
 
 ### Tab 2: Settings
 - **Brightness Slider**: 0-255 range with real-time updates to ESP32
-- **Device IP Configuration**: Update ESP32 device IP address
+- **Device IP Configuration**: Update ESP32 device IP address (uses HTTPS:443)
 - **Refresh State**: Fetch current device state
 
 ## Communication Protocol
 
-The app communicates with the ESP32 using HTTP POST requests with JSON payloads:
+The app communicates with the ESP32 using HTTPS POST requests with JSON payloads:
 
 ```json
-POST http://[ESP32_IP]:80/api/command
+POST https://[ESP32_IP]:443/api/command
 {
   "command": "color_mode",
   "value": "static_light"
@@ -123,7 +123,7 @@ POST http://[ESP32_IP]:80/api/command
 - Android Studio (latest)
 - JDK 11 or higher
 - Android SDK (API level 34)
-- ESP32 device with web server firmware
+- ESP32 device with web server firmware supporting HTTPS/SSL
 
 ### Building the App
 
@@ -137,8 +137,8 @@ POST http://[ESP32_IP]:80/api/command
 Edit the default IP address in `MainActivity.kt`:
 ```kotlin
 ESP32ApiClient.setup(
-    deviceIp = "192.168.1.100",  // Change to your ESP32 IP
-    port = 80,
+    deviceIp = "192.168.4.1",  // Default ESP32 AP IP
+    port = 443,                // Using HTTPS port
     debugMode = true
 )
 ```
@@ -149,11 +149,12 @@ Or update it in the Settings tab at runtime.
 
 Your ESP32 needs to implement:
 
-1. **Web Server**: Listen on port 80
-2. **API Endpoint**: `POST /api/command` - Accept JSON commands
-3. **JSON Parsing**: Parse commands and values
-4. **LED Control**: Control LEDs based on received commands
-5. **Response Format**: Return JSON responses
+1. **Web Server**: Listen on port 443 (HTTPS)
+2. **SSL/TLS**: Support secure connections (the app is configured to trust self-signed certs for local IPs)
+3. **API Endpoint**: `POST /api/command` - Accept JSON commands
+4. **JSON Parsing**: Parse commands and values
+5. **LED Control**: Control LEDs based on received commands
+6. **Response Format**: Return JSON responses
 
 ### Example ESP32 Commands Handled
 - `{"command": "color_mode", "value": "static_light"}`
@@ -167,7 +168,8 @@ Your ESP32 needs to implement:
 - Connection timeouts: 10 seconds
 - Automatic retry on network errors
 - User-friendly error messages via Toast notifications
-- HTTP request/response logging (enabled in debug mode)
+- HTTPS request/response logging (enabled in debug mode)
+- Self-signed certificate support for local network device connection
 
 ## Future Enhancements
 
@@ -206,7 +208,7 @@ Unit tests and UI tests can be added to:
 ## Permissions
 
 The app requires the following permissions:
-- `android.permission.INTERNET` - For HTTP communication
+- `android.permission.INTERNET` - For HTTPS communication
 - `android.permission.ACCESS_NETWORK_STATE` - For network state checking
 
 ## License
@@ -215,7 +217,7 @@ This project is part of the Podsvetka backlight control system.
 
 ## Notes
 
-- The app uses a singleton pattern for ESP32ApiClient to manage HTTP connections
+- The app uses a singleton pattern for ESP32ApiClient to manage HTTPS connections
 - Brightness updates are debounced by 300ms to reduce API calls while sliding
 - All network calls are made on coroutine dispatchers to avoid blocking the UI
 - View Binding is enabled for type-safe view access

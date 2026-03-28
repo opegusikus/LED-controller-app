@@ -8,15 +8,16 @@ import retrofit2.http.POST
 
 /**
  * Retrofit API interface for ESP32 communication
+ * Endpoints are relative to the base URL defined in ESP32ApiClient
  */
 interface ESP32Api {
     
-    @POST("/api/command")
+    @POST("api/command")
     suspend fun sendCommand(@Body command: Command): ApiResponse
     
-    @GET("/api/state")
+    @GET("api/state")
     suspend fun getCurrentState(): ApiResponse
     
-    @GET("/api/info")
+    @GET("api/info")
     suspend fun getDeviceInfo(): ApiResponse
 }

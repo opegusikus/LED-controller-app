@@ -1,90 +1,92 @@
 package com.example.esp32control.network
 
 import com.google.gson.GsonBuilder
+import okhttp3.ConnectionSpec
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.security.cert.X509Certificate
 import java.util.concurrent.TimeUnit
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManager
+import javax.net.ssl.X509TrustManager
 
 /**
  * ESP32 API Client using Retrofit and OkHttp
- * Handles all HTTP communication with the ESP32 device
+ * Handles all HTTPS communication with the ESP32 device
  */
 object ESP32ApiClient {
     
     private var retrofit: Retrofit? = null
     private var apiService: ESP32Api? = null
-    private var baseUrl: String = "http://192.168.1.100:80"
+    private var baseUrl: String = "https://192.168.4.1:443/"
+    private var currentDebugMode: Boolean = true
     
     /**
      * Setup the API client with configuration
-     * @param deviceIp The IP address of the ESP32 device
-     * @param port The port number (default 80)
-     * @param debugMode Enable HTTP logging for debugging
      */
     fun setup(
         deviceIp: String,
-        port: Int = 80,
+        port: Int = 443,
         debugMode: Boolean = true
     ) {
-        baseUrl = "http://$deviceIp:$port"
-        buildRetrofitClient(debugMode)
+        currentDebugMode = debugMode
+        baseUrl = "https://$deviceIp:$port/"
+        buildRetrofitClient()
     }
     
-    /**
-     * Build Retrofit client with OkHttp configuration
-     */
-    private fun buildRetrofitClient(debugMode: Boolean) {
+    private fun buildRetrofitClient() {
         val httLoggingInterceptor = HttpLoggingInterceptor().apply {
-            level = if (debugMode) {
+            level = if (currentDebugMode) {
                 HttpLoggingInterceptor.Level.BODY
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }
         }
         
-        val okHttpClient = OkHttpClient.Builder()
-            .addInterceptor(httLoggingInterceptor)
-            .connectTimeout(10, TimeUnit.SECONDS)
-            .readTimeout(10, TimeUnit.SECONDS)
-            .writeTimeout(10, TimeUnit.SECONDS)
-            .build()
+        // Trust Manager for self-signed certificates
+        val trustAllCerts = arrayOf<TrustManager>(object : X509TrustManager {
+            override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) {}
+            override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {}
+            override fun getAcceptedIssuers(): Array<X509Certificate> = arrayOf()
+        })
         
-        val gson = GsonBuilder()
-            .setLenient()
-            .create()
+        val sslContext = SSLContext.getInstance("TLS")
+        sslContext.init(null, trustAllCerts, java.security.SecureRandom())
+        
+        // Support both Modern and Compatible TLS for better compatibility with ESP32 SSL
+        val connectionSpecs = listOf(
+            ConnectionSpec.MODERN_TLS,
+            ConnectionSpec.COMPATIBLE_TLS
+        )
+        
+        val okHttpClient = OkHttpClient.Builder()
+            .connectionSpecs(connectionSpecs)
+            .sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
+            .hostnameVerifier { _, _ -> true }
+            .addInterceptor(httLoggingInterceptor)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
+            .build()
         
         retrofit = Retrofit.Builder()
             .baseUrl(baseUrl)
             .client(okHttpClient)
-            .addConverterFactory(GsonConverterFactory.create(gson))
+            .addConverterFactory(GsonConverterFactory.create(GsonBuilder().setLenient().create()))
             .build()
         
         apiService = retrofit!!.create(ESP32Api::class.java)
     }
     
-    /**
-     * Get the API service instance
-     * Use this to make API calls
-     */
     fun getService(): ESP32Api {
-        if (apiService == null) {
-            buildRetrofitClient(debugMode = false)
-        }
-        return apiService ?: throw IllegalStateException("API Service not initialized")
+        if (apiService == null) buildRetrofitClient()
+        return apiService!!
     }
     
-    /**
-     * Update base URL if device IP changes
-     */
-    fun updateDeviceIp(newIp: String, port: Int = 80) {
-        baseUrl = "http://$newIp:$port"
-        buildRetrofitClient(debugMode = false)
+    fun updateDeviceIp(newIp: String, port: Int = 443) {
+        baseUrl = "https://$newIp:$port/"
+        buildRetrofitClient()
     }
-    
-    /**
-     * Get current base URL
-     */
-    fun getBaseUrl(): String = baseUrl
 }
