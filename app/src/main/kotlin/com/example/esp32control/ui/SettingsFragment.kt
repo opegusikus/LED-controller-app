@@ -11,11 +11,13 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.example.esp32control.databinding.FragmentSettingsBinding
 import com.example.esp32control.models.Command
+import com.example.esp32control.network.BluetoothConnectionManager
 import com.example.esp32control.network.ESP32ApiClient
 import com.example.esp32control.network.WiFiConnectionManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 /**
  * Fragment for device settings
@@ -106,7 +108,7 @@ class SettingsFragment : Fragment() {
     }
     
     /**
-     * Send brightness update with debouncing
+     * Send brightness update with debouncing via Bluetooth
      * Sends update after 300ms of user stopping to adjust slider
      */
     private fun sendBrightnessUpdate(brightness: Int) {
@@ -115,14 +117,31 @@ class SettingsFragment : Fragment() {
             delay(300) // Debounce delay
             
             try {
-                val apiService = ESP32ApiClient.getService()
-                val command = Command(command = "brightness", value = brightness)
+                val bluetoothManager = BluetoothConnectionManager(requireContext())
                 
-                val response = apiService.sendCommand(command)
-                showToast("Brightness set to $brightness")
+                // Check if connected
+                if (!bluetoothManager.isConnected()) {
+                    showToast("Not connected to ESP32. Please connect via Bluetooth tab.")
+                    return@launch
+                }
+                
+                // Create JSON command
+                val jsonCommand = JSONObject().apply {
+                    put("command", "brightness")
+                    put("value", brightness)
+                }
+                
+                // Send via Bluetooth
+                val success = bluetoothManager.sendCommand(jsonCommand.toString())
+                
+                if (success) {
+                    showToast("Brightness set to $brightness")
+                } else {
+                    showToast("Error: Failed to update brightness")
+                }
                 
             } catch (e: Exception) {
-                showToast("Error: Failed to update brightness - ${e.message}")
+                showToast("Error: ${e.message}")
             }
         }
     }

@@ -9,8 +9,10 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.example.esp32control.databinding.FragmentModesBinding
 import com.example.esp32control.models.Command
+import com.example.esp32control.network.BluetoothConnectionManager
 import com.example.esp32control.network.ESP32ApiClient
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 /**
  * Fragment for controlling lighting modes
@@ -63,23 +65,38 @@ class ModesFragment : Fragment() {
     }
     
     /**
-     * Send a command to the ESP32
+     * Send a command to the ESP32 via Bluetooth
      * @param command The command type
      * @param value The command value
      */
     private fun sendCommand(command: String, value: Any) {
         lifecycleScope.launch {
             try {
-                val apiService = ESP32ApiClient.getService()
-                val commandObj = Command(command = command, value = value)
+                val bluetoothManager = BluetoothConnectionManager(requireContext())
                 
-                val response = apiService.sendCommand(commandObj)
+                // Check if connected
+                if (!bluetoothManager.isConnected()) {
+                    showToast("Not connected to ESP32. Please connect via Bluetooth tab.")
+                    return@launch
+                }
                 
-                val message = response.message ?: "Command sent successfully"
-                showToast("$command: $message")
+                // Create JSON command
+                val jsonCommand = JSONObject().apply {
+                    put("command", command)
+                    put("value", value)
+                }
+                
+                // Send via Bluetooth
+                val success = bluetoothManager.sendCommand(jsonCommand.toString())
+                
+                if (success) {
+                    showToast("$command: Command sent successfully")
+                } else {
+                    showToast("Error: Failed to send command via Bluetooth")
+                }
                 
             } catch (e: Exception) {
-                showToast("Error: Failed to send command - ${e.message}")
+                showToast("Error: ${e.message}")
                 e.printStackTrace()
             }
         }

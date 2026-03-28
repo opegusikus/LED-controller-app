@@ -1,5 +1,7 @@
 package com.example.esp32control.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -9,6 +11,8 @@ import android.widget.Button
 import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.example.esp32control.R
 import com.example.esp32control.network.BluetoothConnectionManager
@@ -21,6 +25,10 @@ import kotlinx.coroutines.launch
  * Allows user to discover, pair, and connect to ESP32 via Bluetooth
  */
 class BluetoothFragment : Fragment() {
+    
+    companion object {
+        private const val BLUETOOTH_PERMISSION_REQUEST_CODE = 200
+    }
     
     private lateinit var bluetoothManager: BluetoothConnectionManager
     private lateinit var statusTextView: TextView
@@ -41,6 +49,9 @@ class BluetoothFragment : Fragment() {
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        
+        // Request Bluetooth permissions first
+        requestBluetoothPermissions()
         
         // Initialize Bluetooth manager
         bluetoothManager = BluetoothConnectionManager(requireContext())
@@ -84,6 +95,30 @@ class BluetoothFragment : Fragment() {
         
         // Refresh device list
         refreshDeviceList()
+    }
+    
+    /**
+     * Request Bluetooth permissions required for Android 12+
+     */
+    private fun requestBluetoothPermissions() {
+        val requiredPermissions = mutableListOf(
+            Manifest.permission.BLUETOOTH,
+            Manifest.permission.BLUETOOTH_ADMIN,
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.BLUETOOTH_SCAN
+        )
+        
+        val missingPermissions = requiredPermissions.filter {
+            ContextCompat.checkSelfPermission(requireContext(), it) != PackageManager.PERMISSION_GRANTED
+        }
+        
+        if (missingPermissions.isNotEmpty()) {
+            ActivityCompat.requestPermissions(
+                requireActivity(),
+                missingPermissions.toTypedArray(),
+                BLUETOOTH_PERMISSION_REQUEST_CODE
+            )
+        }
     }
     
     /**
