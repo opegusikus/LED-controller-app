@@ -2,6 +2,7 @@ package com.example.esp32control.network
 
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothSocket
 import android.content.Context
 import android.util.Log
@@ -12,42 +13,40 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
 
-/**
- * Manages Bluetooth Classic connection with ESP32
- * Handles device discovery, pairing, and serial communication
- */
 class BluetoothConnectionManager(private val context: Context) {
-    
-    private val bluetoothAdapter: BluetoothAdapter? = BluetoothAdapter.getDefaultAdapter()
+
+    private val bluetoothAdapter: BluetoothAdapter? =
+        (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
     private var bluetoothSocket: BluetoothSocket? = null
     private var inputStream: InputStream? = null
     private var outputStream: OutputStream? = null
     private var isConnected = false
-    
+
+    private val prefs = context.getSharedPreferences("bt_prefs", Context.MODE_PRIVATE)
+
     companion object {
         private const val TAG = "BluetoothManager"
-        // Standard UUID for Bluetooth Serial Port Profile
         private const val SERIAL_PORT_UUID = "00001101-0000-1000-8000-00805F9B34FB"
+        private const val PREF_DEVICE_MAC = "saved_device_mac"
         const val DEVICE_NAME = "LED_Control"
     }
-    
-    /**
-     * Check if Bluetooth is available on device
-     */
-    fun isBluetoothAvailable(): Boolean {
-        return bluetoothAdapter != null
+
+    fun isBluetoothAvailable(): Boolean = bluetoothAdapter != null
+
+    fun isBluetoothEnabled(): Boolean = bluetoothAdapter?.isEnabled == true
+
+    fun getSavedMac(): String? = prefs.getString(PREF_DEVICE_MAC, null)
+
+    private fun saveDeviceMac(mac: String) {
+        prefs.edit().putString(PREF_DEVICE_MAC, mac).apply()
+        Log.d(TAG, "Saved device MAC: $mac")
     }
-    
-    /**
-     * Check if Bluetooth is enabled
-     */
-    fun isBluetoothEnabled(): Boolean {
-        return bluetoothAdapter?.isEnabled == true
+
+    fun clearSavedMac() {
+        prefs.edit().remove(PREF_DEVICE_MAC).apply()
+        Log.d(TAG, "Cleared saved MAC")
     }
-    
-    /**
-     * Get list of paired Bluetooth devices
-     */
+
     fun getPairedDevices(): List<BluetoothDevice> {
         return try {
             bluetoothAdapter?.bondedDevices?.toList() ?: emptyList()
@@ -56,157 +55,103 @@ class BluetoothConnectionManager(private val context: Context) {
             emptyList()
         }
     }
-    
-    /**
-     * Find LED_Control device in paired devices
-     */
+
     fun findLEDControlDevice(): BluetoothDevice? {
         return getPairedDevices().find { it.name == DEVICE_NAME }
     }
-    
+
     /**
-     * Connect to a specific Bluetooth device
+     * Connect by saved MAC first (fast path), falls back to name search if not found.
+     * Returns the connected device name, or null on failure.
      */
+    suspend fun autoConnect(): String? {
+        val savedMac = getSavedMac()
+
+        if (savedMac != null) {
+            Log.d(TAG, "Trying saved MAC: $savedMac")
+            val device = getPairedDevices().find { it.address == savedMac }
+            if (device != null) {
+                return if (connectToDevice(device)) device.name else null
+            }
+            Log.w(TAG, "Saved MAC not in paired devices, falling back to name search")
+        }
+
+        // Fall back to name-based search
+        val device = findLEDControlDevice()
+        return if (device != null && connectToDevice(device)) device.name else null
+    }
+
     suspend fun connectToDevice(device: BluetoothDevice): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                // Cancel any existing discovery
                 bluetoothAdapter?.cancelDiscovery()
-                
-                Log.d(TAG, "Attempting to connect to ${device.name} (${device.address})")
-                
-                // Try secure connection first
+
+                Log.d(TAG, "Connecting to ${device.name} (${device.address})")
+
                 bluetoothSocket = try {
-                    Log.d(TAG, "Trying secure socket connection...")
-                    device.createRfcommSocketToServiceRecord(
-                        UUID.fromString(SERIAL_PORT_UUID)
-                    )
+                    device.createRfcommSocketToServiceRecord(UUID.fromString(SERIAL_PORT_UUID))
                 } catch (e: Exception) {
                     Log.w(TAG, "Secure socket failed, trying insecure: ${e.message}")
-                    // Fallback to insecure socket
-                    device.createInsecureRfcommSocketToServiceRecord(
-                        UUID.fromString(SERIAL_PORT_UUID)
-                    )
+                    device.createInsecureRfcommSocketToServiceRecord(UUID.fromString(SERIAL_PORT_UUID))
                 }
-                
-                Log.d(TAG, "Socket created, attempting connect...")
-                
-                // Connect with timeout
+
                 bluetoothSocket?.connect()
-                
-                Log.d(TAG, "Socket connected successfully")
-                
-                // Get streams
+
                 inputStream = bluetoothSocket?.inputStream
                 outputStream = bluetoothSocket?.outputStream
-                
+
                 if (inputStream == null || outputStream == null) {
-                    Log.e(TAG, "Failed to get input/output streams")
+                    Log.e(TAG, "Failed to get streams")
                     isConnected = false
                     return@withContext false
                 }
-                
+
                 isConnected = true
-                Log.d(TAG, "✓ Successfully connected to ${device.name}")
+                saveDeviceMac(device.address)
+                Log.d(TAG, "Connected to ${device.name}, MAC saved")
                 true
             } catch (e: IOException) {
-                Log.e(TAG, "Connection failed with IOException: ${e.message}")
-                e.printStackTrace()
+                Log.e(TAG, "Connection failed: ${e.message}")
                 isConnected = false
                 bluetoothSocket = null
                 false
             } catch (e: Exception) {
-                Log.e(TAG, "Connection failed with exception: ${e.message}")
-                e.printStackTrace()
+                Log.e(TAG, "Connection failed: ${e.message}")
                 isConnected = false
                 bluetoothSocket = null
                 false
             }
         }
     }
-    
-    /**
-     * Connect to LED_Control device (convenience method)
-     */
-    suspend fun connectToLEDControl(): Boolean {
-        val device = findLEDControlDevice()
-        return if (device != null) {
-            connectToDevice(device)
-        } else {
-            Log.e(TAG, "LED_Control device not found in paired devices")
-            false
-        }
-    }
-    
-    /**
-     * Send command to ESP32
-     */
+
     suspend fun sendCommand(command: String): Boolean {
         return withContext(Dispatchers.IO) {
             try {
                 if (!isConnected || outputStream == null) {
-                    Log.e(TAG, "Not connected to device")
+                    Log.e(TAG, "Not connected")
                     return@withContext false
                 }
-                
-                // Send command with newline terminator
-                val commandWithNewline = "$command\n"
-                outputStream?.write(commandWithNewline.toByteArray())
+                outputStream?.write("$command\n".toByteArray())
                 outputStream?.flush()
-                
-                Log.d(TAG, "Command sent: $command")
+                Log.d(TAG, "Sent: $command")
                 true
             } catch (e: IOException) {
-                Log.e(TAG, "Error sending command: ${e.message}")
+                Log.e(TAG, "Send failed: ${e.message}")
                 isConnected = false
                 false
             }
         }
     }
-    
-    /**
-     * Receive response from ESP32
-     */
-    suspend fun receiveResponse(): String? {
-        return withContext(Dispatchers.IO) {
-            try {
-                if (!isConnected || inputStream == null) {
-                    return@withContext null
-                }
-                
-                val buffer = ByteArray(1024)
-                val bytes = inputStream?.read(buffer)
-                
-                return@withContext if (bytes != null && bytes > 0) {
-                    String(buffer, 0, bytes).trim()
-                } else {
-                    null
-                }
-            } catch (e: IOException) {
-                Log.e(TAG, "Error receiving response: ${e.message}")
-                isConnected = false
-                null
-            }
-        }
-    }
-    
-    /**
-     * Check if connected
-     */
-    fun isConnected(): Boolean {
-        return isConnected && bluetoothSocket?.isConnected == true
-    }
-    
-    /**
-     * Disconnect from device
-     */
+
+    fun isConnected(): Boolean = isConnected && bluetoothSocket?.isConnected == true
+
     fun disconnect() {
         try {
             inputStream?.close()
             outputStream?.close()
             bluetoothSocket?.close()
             isConnected = false
-            Log.d(TAG, "Disconnected from device")
+            Log.d(TAG, "Disconnected")
         } catch (e: IOException) {
             Log.e(TAG, "Error disconnecting: ${e.message}")
         }
