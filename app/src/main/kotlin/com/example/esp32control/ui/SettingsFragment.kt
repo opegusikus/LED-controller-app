@@ -11,7 +11,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.example.esp32control.databinding.FragmentSettingsBinding
 import com.example.esp32control.models.Command
-import com.example.esp32control.network.BluetoothConnectionManager
+import com.example.esp32control.MainActivity
 import com.example.esp32control.network.ESP32ApiClient
 import com.example.esp32control.network.WiFiConnectionManager
 import kotlinx.coroutines.Job
@@ -117,8 +117,8 @@ class SettingsFragment : Fragment() {
             delay(300) // Debounce delay
             
             try {
-                val bluetoothManager = BluetoothConnectionManager(requireContext())
-                
+                val bluetoothManager = (requireActivity() as MainActivity).bluetoothManager
+
                 // Check if connected
                 if (!bluetoothManager.isConnected()) {
                     showToast("Not connected to ESP32. Please connect via Bluetooth tab.")

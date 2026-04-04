@@ -73,24 +73,53 @@ class BluetoothConnectionManager(private val context: Context) {
                 // Cancel any existing discovery
                 bluetoothAdapter?.cancelDiscovery()
                 
-                // Create socket
-                bluetoothSocket = device.createRfcommSocketToServiceRecord(
-                    UUID.fromString(SERIAL_PORT_UUID)
-                )
+                Log.d(TAG, "Attempting to connect to ${device.name} (${device.address})")
                 
-                // Connect
+                // Try secure connection first
+                bluetoothSocket = try {
+                    Log.d(TAG, "Trying secure socket connection...")
+                    device.createRfcommSocketToServiceRecord(
+                        UUID.fromString(SERIAL_PORT_UUID)
+                    )
+                } catch (e: Exception) {
+                    Log.w(TAG, "Secure socket failed, trying insecure: ${e.message}")
+                    // Fallback to insecure socket
+                    device.createInsecureRfcommSocketToServiceRecord(
+                        UUID.fromString(SERIAL_PORT_UUID)
+                    )
+                }
+                
+                Log.d(TAG, "Socket created, attempting connect...")
+                
+                // Connect with timeout
                 bluetoothSocket?.connect()
+                
+                Log.d(TAG, "Socket connected successfully")
                 
                 // Get streams
                 inputStream = bluetoothSocket?.inputStream
                 outputStream = bluetoothSocket?.outputStream
                 
+                if (inputStream == null || outputStream == null) {
+                    Log.e(TAG, "Failed to get input/output streams")
+                    isConnected = false
+                    return@withContext false
+                }
+                
                 isConnected = true
-                Log.d(TAG, "Connected to ${device.name}")
+                Log.d(TAG, "✓ Successfully connected to ${device.name}")
                 true
             } catch (e: IOException) {
-                Log.e(TAG, "Connection failed: ${e.message}")
+                Log.e(TAG, "Connection failed with IOException: ${e.message}")
+                e.printStackTrace()
                 isConnected = false
+                bluetoothSocket = null
+                false
+            } catch (e: Exception) {
+                Log.e(TAG, "Connection failed with exception: ${e.message}")
+                e.printStackTrace()
+                isConnected = false
+                bluetoothSocket = null
                 false
             }
         }

@@ -14,6 +14,7 @@ import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import com.example.esp32control.MainActivity
 import com.example.esp32control.R
 import com.example.esp32control.network.BluetoothConnectionManager
 import kotlinx.coroutines.CoroutineScope
@@ -53,8 +54,8 @@ class BluetoothFragment : Fragment() {
         // Request Bluetooth permissions first
         requestBluetoothPermissions()
         
-        // Initialize Bluetooth manager
-        bluetoothManager = BluetoothConnectionManager(requireContext())
+        // Use shared Bluetooth manager from MainActivity
+        bluetoothManager = (requireActivity() as MainActivity).bluetoothManager
         
         // Initialize UI elements
         statusTextView = view.findViewById(R.id.statusTextView)

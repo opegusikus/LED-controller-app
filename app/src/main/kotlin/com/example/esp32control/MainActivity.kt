@@ -22,10 +22,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
-    
+
     private lateinit var binding: ActivityMainBinding
     private lateinit var viewPager: ViewPager2
-    
+    lateinit var bluetoothManager: BluetoothConnectionManager
+
     companion object {
         private const val PERMISSION_REQUEST_CODE = 100
     }
@@ -35,7 +36,8 @@ class MainActivity : AppCompatActivity() {
         
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        
+
+        bluetoothManager = BluetoothConnectionManager(this)
         requestRequiredPermissions()
         setupViewController()
         initializeESP32Connection()
