@@ -1,39 +1,37 @@
 # ESP32 Control App - Android Application
 
-A complete Android application built with Kotlin and Gradle for controlling an ESP32 device over WiFi using HTTPS + JSON protocol.
+An Android application built with Kotlin for controlling an ESP32-based LED strip over **Bluetooth Classic (SPP)**.
 
 ## Project Structure
 
 ```
 ESP32ControlApp/
 ├── app/
-│   ├── build.gradle.kts                         # App-level Gradle configuration
-│   ├── proguard-rules.pro                       # ProGuard rules for minification
+│   ├── build.gradle.kts
+│   ├── proguard-rules.pro
 │   ├── src/main/
 │   │   ├── kotlin/com/example/esp32control/
-│   │   │   ├── MainActivity.kt                  # Main activity with tab navigation
+│   │   │   ├── MainActivity.kt                  # Main activity — holds shared BluetoothConnectionManager
 │   │   │   ├── ui/
+│   │   │   │   ├── BluetoothFragment.kt         # Connect/disconnect UI, paired device list
 │   │   │   │   ├── ModesFragment.kt             # Lighting modes control
-│   │   │   │   └── SettingsFragment.kt          # Device settings (brightness, IP)
+│   │   │   │   └── SettingsFragment.kt          # Brightness slider and device settings
 │   │   │   ├── network/
-│   │   │   │   ├── ESP32Api.kt                  # Retrofit API interface
-│   │   │   │   └── ESP32ApiClient.kt            # Retrofit client singleton
+│   │   │   │   ├── BluetoothConnectionManager.kt  # Bluetooth Classic SPP connection logic
+│   │   │   │   ├── ESP32Api.kt                  # Retrofit API interface (legacy WiFi)
+│   │   │   │   ├── ESP32ApiClient.kt            # Retrofit client singleton (legacy WiFi)
+│   │   │   │   └── WiFiConnectionManager.kt     # WiFi utilities
 │   │   │   └── models/
-│   │   │       └── Command.kt                   # Data models (Command, Response, etc)
-│   │   ├── res/
-│   │   │   ├── layout/
-│   │   │   │   ├── activity_main.xml            # Main activity layout
-│   │   │   │   ├── fragment_modes.xml           # Modes fragment layout
-│   │   │   │   └── fragment_settings.xml        # Settings fragment layout
-│   │   │   ├── values/
-│   │   │   │   ├── strings.xml                  # String resources
-│   │   │   │   ├── colors.xml                   # Color definitions
-│   │   │   │   └── themes.xml                   # Theme definitions
-│   │   │   └── drawable/                        # Drawable resources (icons, images)
-│   │   └── AndroidManifest.xml                  # Android manifest
+│   │   │       └── Command.kt                   # Data models
+│   │   ├── res/layout/
+│   │   │   ├── activity_main.xml
+│   │   │   ├── fragment_bluetooth.xml
+│   │   │   ├── fragment_modes.xml
+│   │   │   └── fragment_settings.xml
+│   │   └── AndroidManifest.xml
 │   └── build.gradle.kts (root)
-├── settings.gradle.kts                          # Gradle settings
-└── .gitignore                                   # Git ignore rules
+├── settings.gradle.kts
+└── .gitignore
 ```
 
 ## Technology Stack
@@ -42,182 +40,143 @@ ESP32ControlApp/
 - **Build System**: Gradle (Kotlin DSL)
 - **Minimum SDK**: Android 7.0+ (API 24)
 - **Target SDK**: Android 14 (API 34)
-- **UI Components**:
-  - Fragment + ViewPager2 for tab-based navigation
-  - TabLayout for tab indicators
-  - Material Design components
-- **HTTP Client**: Retrofit2 + OkHttp3 (configured for HTTPS)
-- **JSON Serialization**: Gson
-- **Architecture**: MVVM-ready with LiveData
+- **Bluetooth**: Classic Bluetooth, Serial Port Profile (SPP) via RFCOMM
+- **UI**: Fragment + ViewPager2, TabLayout, Material Design
 - **Async**: Kotlin Coroutines
 
-## Dependencies
+## How Bluetooth Works
 
-### Core Android
-- `androidx.core:core-ktx` - Kotlin extensions
-- `androidx.appcompat:appcompat` - Legacy support
-- `com.google.android.material:material` - Material Design components
+### Protocol: Classic Bluetooth SPP (not BLE/GATT)
 
-### UI Framework
-- `androidx.viewpager2:viewpager2` - ViewPager2 for tab navigation
-- `androidx.fragment:fragment-ktx` - Fragment support with Kotlin extensions
-- `androidx.lifecycle:lifecycle-runtime-ktx` - Lifecycle awareness
-- `androidx.lifecycle:lifecycle-viewmodel-ktx` - ViewModel support
-- `androidx.lifecycle:lifecycle-livedata-ktx` - LiveData support
+The app uses **Bluetooth Classic with the Serial Port Profile (SPP)**. This emulates a serial cable over Bluetooth — data is streamed as raw bytes, not GATT characteristics.
 
-### Network
-- `com.squareup.retrofit2:retrofit` - HTTP client framework
-- `com.squareup.retrofit2:converter-gson` - JSON converter for Retrofit
-- `com.squareup.okhttp3:okhttp` - HTTP client
-- `com.squareup.okhttp3:logging-interceptor` - HTTP request/response logging
+- **UUID**: `00001101-0000-1000-8000-00805F9B34FB` (standard SPP UUID)
+- **Socket type**: RFCOMM (`createRfcommSocketToServiceRecord`)
+- **ESP32 library**: `BluetoothSerial` (Classic, not BLE)
+- **ESP32 device name**: `LED_Control`
 
-### Serialization
-- `com.google.code.gson:gson` - JSON serialization/deserialization
+### Connection Flow
 
-### Concurrency
-- `org.jetbrains.kotlinx:kotlinx-coroutines-core` - Coroutines core
-- `org.jetbrains.kotlinx:kotlinx-coroutines-android` - Android coroutines support
+1. The ESP32 advertises itself as `LED_Control` via `SerialBT.begin("LED_Control")`
+2. You pair the ESP32 with your Android phone once via Android Settings → Bluetooth
+3. On app launch, `BluetoothFragment` searches paired devices for `LED_Control`
+4. If found, it automatically opens an RFCOMM socket to it
+5. The single `BluetoothConnectionManager` instance (owned by `MainActivity`) is shared across all fragments
+
+> The device must be **pre-paired** in Android system settings. The app does not handle pairing — it only connects to already-paired devices.
+
+### Sending Commands
+
+Commands are JSON objects serialized to a string, terminated with `\n`, and written to the socket's output stream:
+
+**Android side** (`BluetoothConnectionManager.kt`):
+```kotlin
+val commandWithNewline = "$command\n"
+outputStream?.write(commandWithNewline.toByteArray())
+outputStream?.flush()
+```
+
+**ESP32 side** (`Podsvetka-test.ino`):
+```cpp
+String command = SerialBT.readStringUntil('\n');
+command.trim();
+processCommand(command);
+```
+
+### Command Format
+
+All commands are JSON with a `command` field and a `value` field:
+
+```json
+{"command": "color_mode", "value": "static_light"}
+{"command": "color_mode", "value": "rainbow"}
+{"command": "color_mode", "value": "pulse"}
+{"command": "brightness", "value": 200}
+{"command": "power", "value": "on"}
+{"command": "power", "value": "off"}
+```
+
+### Response Format
+
+The ESP32 replies with a JSON string over the same socket:
+
+```json
+{"status": "success", "message": "Rainbow mode enabled"}
+{"status": "error", "message": "Unknown command or invalid value"}
+```
+
+### Shared Manager Architecture
+
+`BluetoothConnectionManager` is instantiated once in `MainActivity` and accessed by all fragments via:
+
+```kotlin
+val bluetoothManager = (requireActivity() as MainActivity).bluetoothManager
+```
+
+This ensures `BluetoothFragment`, `ModesFragment`, and `SettingsFragment` all share the same socket connection. Creating separate instances per-fragment would break the connection state.
 
 ## Features
 
-### Tab 1: Modes
-- **Static Light**: Send command to display static light
-- **Rainbow**: Activate rainbow mode
-- **Pulse**: Enable pulsing light effect
-- **Power Control**: Turn device on/off
+### Tab 1: Bluetooth
+- Lists paired Bluetooth devices
+- Auto-connects to `LED_Control` on launch
+- Manual connect / disconnect buttons
 
-### Tab 2: Settings
-- **Brightness Slider**: 0-255 range with real-time updates to ESP32
-- **Device IP Configuration**: Update ESP32 device IP address (uses HTTPS:443)
-- **Refresh State**: Fetch current device state
+### Tab 2: Modes
+- Static Light, Rainbow, Pulse mode buttons
+- Power on/off
 
-## Communication Protocol
-
-The app communicates with the ESP32 using HTTPS POST requests with JSON payloads:
-
-```json
-POST https://[ESP32_IP]:443/api/command
-{
-  "command": "color_mode",
-  "value": "static_light"
-}
-```
-
-### Endpoints
-- `POST /api/command` - Send control commands
-- `GET /api/state` - Get current device state
-- `GET /api/info` - Get device information
-
-### Response Format
-```json
-{
-  "status": "success",
-  "message": "Command executed",
-  "data": { ... }
-}
-```
+### Tab 3: Settings
+- Brightness slider (0–255) with 300ms debounce
 
 ## Quick Start
 
 ### Prerequisites
 - Android Studio (latest)
-- JDK 11 or higher
-- Android SDK (API level 34)
-- ESP32 device with web server firmware supporting HTTPS/SSL
+- JDK 11+
+- Android SDK API 34
+- ESP32 flashed with `Podsvetka-test.ino`
 
-### Building the App
+### Setup
 
-1. Open the project in Android Studio
-2. Sync Gradle files: `File → Sync Now`
-3. Build the project: `Build → Make Project`
-4. Run on device/emulator: `Run → Run 'app'`
+1. Flash `for-tests/Podsvetka-test.ino` to the ESP32
+2. Pair your Android phone with `LED_Control` in Android Settings → Bluetooth
+3. Open the project in Android Studio and sync Gradle
+4. Run the app — it will auto-connect on the Bluetooth tab
 
-### Configuration
+### Building
 
-Edit the default IP address in `MainActivity.kt`:
-```kotlin
-ESP32ApiClient.setup(
-    deviceIp = "192.168.4.1",  // Default ESP32 AP IP
-    port = 443,                // Using HTTPS port
-    debugMode = true
-)
-```
-
-Or update it in the Settings tab at runtime.
-
-## ESP32 Firmware Requirements
-
-Your ESP32 needs to implement:
-
-1. **Web Server**: Listen on port 443 (HTTPS)
-2. **SSL/TLS**: Support secure connections (the app is configured to trust self-signed certs for local IPs)
-3. **API Endpoint**: `POST /api/command` - Accept JSON commands
-4. **JSON Parsing**: Parse commands and values
-5. **LED Control**: Control LEDs based on received commands
-6. **Response Format**: Return JSON responses
-
-### Example ESP32 Commands Handled
-- `{"command": "color_mode", "value": "static_light"}`
-- `{"command": "color_mode", "value": "rainbow"}`
-- `{"command": "color_mode", "value": "pulse"}`
-- `{"command": "brightness", "value": 128}`
-- `{"command": "power", "value": "on"}` or `"off"`
-
-## Error Handling
-
-- Connection timeouts: 10 seconds
-- Automatic retry on network errors
-- User-friendly error messages via Toast notifications
-- HTTPS request/response logging (enabled in debug mode)
-- Self-signed certificate support for local network device connection
-
-## Future Enhancements
-
-- [ ] SharedPreferences for storing favorite settings
-- [ ] Real-time state synchronization with LiveData
-- [ ] Color picker UI for RGB control
-- [ ] Animation effect presets
-- [ ] Device discovery via mDNS
-- [ ] Local network detection and auto-connection
-- [ ] Wake-on-LAN support
-- [ ] Schedule/automation features
-
-## Building & Deployment
-
-### Debug Build
 ```bash
-./gradlew assembleDebug
+./gradlew assembleDebug     # Debug build
+./gradlew assembleRelease   # Release build
+./gradlew installDebug      # Install on connected device
 ```
-
-### Release Build
-```bash
-./gradlew assembleRelease
-```
-
-### Running on Device
-```bash
-./gradlew installDebug
-```
-
-## Testing
-
-Unit tests and UI tests can be added to:
-- `app/src/test/` - Unit tests
-- `app/src/androidTest/` - UI/Integration tests
 
 ## Permissions
 
-The app requires the following permissions:
-- `android.permission.INTERNET` - For HTTPS communication
-- `android.permission.ACCESS_NETWORK_STATE` - For network state checking
+```xml
+<uses-permission android:name="android.permission.BLUETOOTH" />
+<uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />  <!-- Android 12+ -->
+<uses-permission android:name="android.permission.BLUETOOTH_SCAN" />     <!-- Android 12+ -->
+```
 
-## License
+`BLUETOOTH_CONNECT` and `BLUETOOTH_SCAN` require runtime approval on Android 12+. The app requests these when the Bluetooth tab is opened.
 
-This project is part of the Podsvetka backlight control system.
+## ESP32 Firmware
+
+File: `for-tests/Podsvetka-test.ino`
+
+| Detail | Value |
+|--------|-------|
+| Bluetooth library | `BluetoothSerial.h` |
+| Device name | `LED_Control` |
+| LED pin | GPIO 13 |
+| LED count | 59 WS2812B |
+| JSON library | ArduinoJson |
 
 ## Notes
 
-- The app uses a singleton pattern for ESP32ApiClient to manage HTTPS connections
-- Brightness updates are debounced by 300ms to reduce API calls while sliding
-- All network calls are made on coroutine dispatchers to avoid blocking the UI
+- Brightness updates are debounced by 300ms to avoid flooding the ESP32 while dragging the slider
+- All Bluetooth I/O runs on `Dispatchers.IO` coroutines to avoid blocking the UI thread
 - View Binding is enabled for type-safe view access

@@ -2,35 +2,13 @@
 <resources>
     <string name="app_name">ESP32 Control</string>
 
-    <!-- Tab titles -->
-    <string name="modes_tab">Modes</string>
-    <string name="settings_tab">Settings</string>
-
     <!-- Modes Fragment -->
     <string name="modes_title">Lighting Modes</string>
     <string name="static_light_mode">Static Light</string>
     <string name="rainbow_mode">Rainbow</string>
     <string name="pulse_mode">Pulse</string>
+    <string name="brightness_control">Brightness</string>
     <string name="power_control">Power Control</string>
     <string name="turn_on">Turn On</string>
     <string name="turn_off">Turn Off</string>
-
-    <!-- Settings Fragment -->
-    <string name="brightness_control">Brightness Control</string>
-    <string name="device_connection">Device Connection</string>
-    <string name="device_ip_label">Device IP Address</string>
-    <string name="device_ip_hint">e.g., 192.168.1.100</string>
-    <string name="update_ip">Update IP Address</string>
-    <string name="refresh_device_state">Refresh Device State</string>
-    
-    <!-- WiFi Connection -->
-    <string name="wifi_connection">WiFi Connection</string>
-    <string name="scan_wifi">Scan WiFi Networks</string>
-    <string name="connect_led_control">Connect to LED_control</string>
-    <string name="wifi_password_hint">Leave empty for open networks</string>
-
-    <!-- Error and Status Messages -->
-    <string name="connection_failed">Connection failed</string>
-    <string name="command_sent">Command sent successfully</string>
-    <string name="invalid_ip">Invalid IP address</string>
 </resources>

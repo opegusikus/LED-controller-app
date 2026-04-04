@@ -7,19 +7,17 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.example.esp32control.databinding.ActivityMainBinding
 import com.example.esp32control.network.BluetoothConnectionManager
-import com.example.esp32control.network.ESP32ApiClient
 import com.example.esp32control.ui.BluetoothFragment
 import com.example.esp32control.ui.ModesFragment
-import com.example.esp32control.ui.SettingsFragment
 import com.google.android.material.tabs.TabLayoutMediator
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
@@ -33,32 +31,44 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
+        // Edge-to-edge: app draws behind status bar and nav bar
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Push tab layout below the status bar
+        ViewCompat.setOnApplyWindowInsetsListener(binding.tabLayout) { view, insets ->
+            val statusBar = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+            view.setPadding(0, statusBar.top, 0, 0)
+            insets
+        }
+
+        // Push content above the navigation bar (back/home/recents buttons)
+        ViewCompat.setOnApplyWindowInsetsListener(binding.viewPager) { view, insets ->
+            val navBar = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            view.setPadding(0, 0, 0, navBar.bottom)
+            insets
+        }
 
         bluetoothManager = BluetoothConnectionManager(this)
         requestRequiredPermissions()
         setupViewController()
-        initializeESP32Connection()
     }
-    
-    /**
-     * Request WiFi permissions required for WiFi scanning and connection
-     */
+
     private fun requestRequiredPermissions() {
         val requiredPermissions = mutableListOf(
-            Manifest.permission.ACCESS_WIFI_STATE,
-            Manifest.permission.CHANGE_WIFI_STATE,
-            Manifest.permission.CHANGE_NETWORK_STATE,
-            Manifest.permission.ACCESS_NETWORK_STATE,
-            Manifest.permission.INTERNET
+            Manifest.permission.BLUETOOTH,
+            Manifest.permission.BLUETOOTH_ADMIN,
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.BLUETOOTH_SCAN
         )
-        
+
         val missingPermissions = requiredPermissions.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
-        
+
         if (missingPermissions.isNotEmpty()) {
             ActivityCompat.requestPermissions(
                 this,
@@ -67,7 +77,7 @@ class MainActivity : AppCompatActivity() {
             )
         }
     }
-    
+
     @Deprecated("Deprecated in API 33")
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -75,69 +85,44 @@ class MainActivity : AppCompatActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        
+
         if (requestCode == PERMISSION_REQUEST_CODE) {
             val deniedPermissions = permissions.filterIndexed { index, _ ->
                 grantResults[index] != PackageManager.PERMISSION_GRANTED
             }
-            
+
             if (deniedPermissions.isNotEmpty()) {
                 showToast("Some permissions were denied: ${deniedPermissions.joinToString()}")
-            } else {
-                showToast("All permissions granted!")
             }
         }
     }
-    
+
     private fun setupViewController() {
         viewPager = binding.viewPager
-        
-        // Set up ViewPager2 adapter
+
         viewPager.adapter = FragmentPagerAdapter(this)
-        
-        // Connect TabLayout with ViewPager2
+
         TabLayoutMediator(binding.tabLayout, viewPager) { tab, position ->
             tab.text = when (position) {
                 0 -> "Bluetooth"
                 1 -> "Modes"
-                2 -> "Settings"
                 else -> "Unknown"
             }
         }.attach()
     }
-    
-    private fun initializeESP32Connection() {
-        // Initialize the API client with device IP
-        // Default: ESP32 Access Point IP (192.168.4.1) with HTTPS on port 443
-        // Can be changed in Settings if connecting as a WiFi client instead
-        try {
-            ESP32ApiClient.setup(
-                deviceIp = "192.168.4.1",
-                port = 443,
-                debugMode = true
-            )
-            showToast("ESP32 API initialized (HTTPS)")
-        } catch (e: Exception) {
-            showToast("Failed to initialize ESP32 connection: ${e.message}")
-        }
-    }
-    
+
     private fun showToast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
-    
-    /**
-     * Fragment adapter for ViewPager2
-     */
+
     private inner class FragmentPagerAdapter(activity: AppCompatActivity) : FragmentStateAdapter(activity) {
-        
-        override fun getItemCount(): Int = 3
-        
+
+        override fun getItemCount(): Int = 2
+
         override fun createFragment(position: Int): Fragment {
             return when (position) {
                 0 -> BluetoothFragment()
                 1 -> ModesFragment()
-                2 -> SettingsFragment()
                 else -> Fragment()
             }
         }
