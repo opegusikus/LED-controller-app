@@ -19,16 +19,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.esp32control.ui.AppViewModel
 import com.example.esp32control.ui.components.ModeButton
+import com.example.esp32control.ui.components.PowerButtons
 
 
 @Composable
 fun ModesScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) {
+    var expandedLabel by remember { mutableStateOf<String?>(null) } 
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -43,7 +46,9 @@ fun ModesScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) {
 
         ModeButton(
             label = "Static Light",
-            onActivate = { viewModel.sendCommand("color_mode", "static_light") }
+            onActivate = { viewModel.sendCommand("color_mode", "static_light") },
+            expanded = expandedLabel == "Static Light",
+            onToggle = { expandedLabel = if (expandedLabel == "Static Light") null else "Static Light" }
         ) {
             BrightnessPanel(viewModel)
         }
@@ -52,7 +57,10 @@ fun ModesScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) {
 
         ModeButton(
             label = "Rainbow",
-            onActivate = { viewModel.sendCommand("color_mode", "rainbow") }
+            onActivate = { viewModel.sendCommand("color_mode", "rainbow") },
+            expanded = expandedLabel == "Rainbow",
+            onToggle = { expandedLabel = if (expandedLabel == "Rainbow") null else "Rainbow" }
+
         ) {
             BrightnessPanel(viewModel)
         }
@@ -61,40 +69,19 @@ fun ModesScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) {
 
         ModeButton(
             label = "Pulse",
-            onActivate = { viewModel.sendCommand("color_mode", "pulse") }
+            onActivate = { viewModel.sendCommand("color_mode", "pulse") },
+            expanded = expandedLabel == "Pulse",
+            onToggle = { expandedLabel = if (expandedLabel == "Pulse") null else "Pulse" }  
         ) {
             BrightnessPanel(viewModel)
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 24.dp))
 
-        Text(
-            text = "Power",
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(bottom = 12.dp)
+        PowerButtons(
+            onTurnOn = { viewModel.sendCommand("power", "on") },
+            onTurnOff = { viewModel.sendCommand("power", "off") }
         )
-
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Button(
-                onClick = { viewModel.sendCommand("power", "on") },
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Turn On")
-            }
-            Button(
-                onClick = { viewModel.sendCommand("power", "off") },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                ),
-                modifier = Modifier.weight(1f)
-            ) {
-                Text("Turn Off")
-            }
-        }
     }
 }
 

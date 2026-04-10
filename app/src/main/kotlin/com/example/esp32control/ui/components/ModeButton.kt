@@ -3,10 +3,12 @@ package com.example.esp32control.ui.components
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -27,39 +29,48 @@ import androidx.compose.ui.unit.dp
 fun ModeButton(
     label: String,
     onActivate: () -> Unit,
+    expanded: Boolean,
+    onToggle: () -> Unit,
     content: @Composable () -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
 
-    Column {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        AnimatedVisibility(
+            visible = expanded,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 28.dp),
+            enter = expandVertically(),
+            exit = shrinkVertically()
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(
+                        start = 16.dp,
+                        end = 16.dp,
+                        bottom = 16.dp,
+                        top = 44.dp  // 28dp overlap + 16dp padding
+                    )
+                ) {
+                    content()
+                }
+            }
+        }
+
         Button(
             onClick = {
                 onActivate()
-                expanded = !expanded
+                onToggle()
             },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp)
         ) {
             Text(label, style = MaterialTheme.typography.titleMedium)
-        }
-
-        AnimatedVisibility(
-            visible = expanded,
-            enter = expandVertically(),
-            exit = shrinkVertically()
-        ) {
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    content()
-                }
-            }
         }
     }
 }
