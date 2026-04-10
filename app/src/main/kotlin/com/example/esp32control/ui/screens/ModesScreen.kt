@@ -1,8 +1,5 @@
 package com.example.esp32control.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,17 +15,17 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.esp32control.ui.AppViewModel
+import com.example.esp32control.ui.components.ModeButton
+
 
 @Composable
 fun ModesScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) {
@@ -96,51 +93,6 @@ fun ModesScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) {
                 modifier = Modifier.weight(1f)
             ) {
                 Text("Turn Off")
-            }
-        }
-    }
-}
-
-/**
- * A button that sends a mode command immediately on tap,
- * and toggles an expandable settings panel below it.
- */
-@Composable
-fun ModeButton(
-    label: String,
-    onActivate: () -> Unit,
-    content: @Composable () -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    Column {
-        Button(
-            onClick = {
-                onActivate()
-                expanded = !expanded
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-        ) {
-            Text(label, style = MaterialTheme.typography.titleMedium)
-        }
-
-        AnimatedVisibility(
-            visible = expanded,
-            enter = expandVertically(),
-            exit = shrinkVertically()
-        ) {
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    content()
-                }
             }
         }
     }
