@@ -1,4 +1,4 @@
-package com.example.esp32control.ui.components
+package com.example.esp32control.ui.modes
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -21,10 +21,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-/**
- * A button that sends a mode command immediately on tap,
- * and toggles an expandable settings panel below it.
- */
 @Composable
 fun ModeButton(
     label: String,
@@ -33,7 +29,6 @@ fun ModeButton(
     onToggle: () -> Unit,
     content: @Composable () -> Unit
 ) {
-
     Box(modifier = Modifier.fillMaxWidth()) {
         AnimatedVisibility(
             visible = expanded,
@@ -53,7 +48,7 @@ fun ModeButton(
                         start = 16.dp,
                         end = 16.dp,
                         bottom = 16.dp,
-                        top = 44.dp  // 28dp overlap + 16dp padding
+                        top = 44.dp
                     )
                 ) {
                     content()

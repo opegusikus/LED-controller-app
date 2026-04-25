@@ -1,4 +1,4 @@
-package com.example.esp32control.ui.screens
+package com.example.esp32control.ui.bluetooth
 
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
@@ -44,12 +44,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.esp32control.network.BluetoothConnectionManager
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.esp32control.data.ConnectionState
-import com.example.esp32control.ui.AppViewModel
+import com.example.esp32control.network.BluetoothConnectionManager
 
 @Composable
-fun BluetoothScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) {
+fun BluetoothScreen(modifier: Modifier = Modifier) {
+    val viewModel: BluetoothViewModel = viewModel()
     val connectionState by viewModel.connectionState.collectAsStateWithLifecycle()
     val statusMessage by viewModel.statusMessage.collectAsStateWithLifecycle()
     val context = LocalContext.current

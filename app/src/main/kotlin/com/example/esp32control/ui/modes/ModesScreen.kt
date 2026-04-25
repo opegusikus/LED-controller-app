@@ -1,4 +1,4 @@
-package com.example.esp32control.ui.screens
+package com.example.esp32control.ui.modes
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,14 +24,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.esp32control.ui.AppViewModel
-import com.example.esp32control.ui.components.ModeButton
-import com.example.esp32control.ui.components.PowerButtons
-
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun ModesScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) {
-    var expandedLabel by remember { mutableStateOf<String?>(null) } 
+fun ModesScreen(modifier: Modifier = Modifier) {
+    val viewModel: ModesViewModel = viewModel()
+    var expandedLabel by remember { mutableStateOf<String?>(null) }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -60,7 +58,6 @@ fun ModesScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) {
             onActivate = { viewModel.sendCommand("color_mode", "rainbow") },
             expanded = expandedLabel == "Rainbow",
             onToggle = { expandedLabel = if (expandedLabel == "Rainbow") null else "Rainbow" }
-
         ) {
             BrightnessPanel(viewModel)
         }
@@ -71,7 +68,7 @@ fun ModesScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) {
             label = "Pulse",
             onActivate = { viewModel.sendCommand("color_mode", "pulse") },
             expanded = expandedLabel == "Pulse",
-            onToggle = { expandedLabel = if (expandedLabel == "Pulse") null else "Pulse" }  
+            onToggle = { expandedLabel = if (expandedLabel == "Pulse") null else "Pulse" }
         ) {
             BrightnessPanel(viewModel)
         }
@@ -86,7 +83,7 @@ fun ModesScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun BrightnessPanel(viewModel: AppViewModel) {
+fun BrightnessPanel(viewModel: ModesViewModel) {
     var brightness by remember { mutableFloatStateOf(0.5f) }
 
     Text(
@@ -98,7 +95,6 @@ fun BrightnessPanel(viewModel: AppViewModel) {
         value = brightness,
         onValueChange = { brightness = it },
         onValueChangeFinished = {
-            // Send only when finger lifts — no debounce needed
             viewModel.sendCommand("brightness", (brightness * 255).toInt())
         },
         modifier = Modifier.fillMaxWidth()

@@ -6,21 +6,18 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
 import com.example.esp32control.ui.App
-import com.example.esp32control.ui.AppViewModel
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-
-    private val viewModel: AppViewModel by viewModels()
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
-        // Permissions resolved — attempt auto-connect
-        viewModel.connect()
+        lifecycleScope.launch { (application as MyApp).deviceRepository.connect() }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,7 +28,7 @@ class MainActivity : ComponentActivity() {
         requestBluetoothPermissions()
 
         setContent {
-            App(viewModel)
+            App()
         }
     }
 
@@ -48,7 +45,7 @@ class MainActivity : ComponentActivity() {
         if (missing.isNotEmpty()) {
             permissionLauncher.launch(missing.toTypedArray())
         } else {
-            viewModel.connect()
+            lifecycleScope.launch { (application as MyApp).deviceRepository.connect() }
         }
     }
 }

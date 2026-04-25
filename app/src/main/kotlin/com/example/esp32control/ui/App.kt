@@ -15,12 +15,12 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import com.example.esp32control.ui.screens.BluetoothScreen
-import com.example.esp32control.ui.screens.ModesScreen
+import com.example.esp32control.ui.bluetooth.BluetoothScreen
+import com.example.esp32control.ui.modes.ModesScreen
 import com.example.esp32control.ui.theme.AppTheme
 
 @Composable
-fun App(viewModel: AppViewModel) {
+fun App() {
     AppTheme {
         var selectedTab by remember { mutableIntStateOf(0) }
 
@@ -43,8 +43,8 @@ fun App(viewModel: AppViewModel) {
             }
         ) { innerPadding ->
             when (selectedTab) {
-                0 -> BluetoothScreen(viewModel, modifier = Modifier.padding(innerPadding))
-                1 -> ModesScreen(viewModel, modifier = Modifier.padding(innerPadding))
+                0 -> BluetoothScreen(modifier = Modifier.padding(innerPadding))
+                1 -> ModesScreen(modifier = Modifier.padding(innerPadding))
             }
         }
     }
