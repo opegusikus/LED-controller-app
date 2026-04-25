@@ -45,8 +45,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.esp32control.network.BluetoothConnectionManager
+import com.example.esp32control.data.ConnectionState
 import com.example.esp32control.ui.AppViewModel
-import com.example.esp32control.ui.ConnectionState
 
 @Composable
 fun BluetoothScreen(viewModel: AppViewModel, modifier: Modifier = Modifier) {
